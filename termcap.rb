@@ -1,36 +1,12 @@
 #!/usr/bin/env ruby
 
-require 'ncurses.rb'
+#code by Alexandre Carayon @42 in 09/2014
+
+require 'ncurses'
 require 'rubygems'
 require 'json'
 require "net/http"
 require "uri"
-require 'ffi-ncurses'
-require 'ffi-ncurses/ord_shim'  # for 1.8.6 compatibility , pas sur que ca soit utile
-include FFI::NCurses
-
-
-############################## MIS EN PLACE DES COULEURS ###############################
-
-
-init_pair(1, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::BLACK)
-init_pair(2, FFI::NCurses::Color::RED, FFI::NCurses::Color::BLACK)
-init_pair(3, FFI::NCurses::Color::GREEN, FFI::NCurses::Color::BLACK)
-init_pair(4, FFI::NCurses::Color::YELLOW, FFI::NCurses::Color::BLACK)
-init_pair(5, FFI::NCurses::Color::BLUE, FFI::NCurses::Color::BLACK)
-init_pair(6, FFI::NCurses::Color::MAGENTA, FFI::NCurses::Color::BLACK)
-init_pair(7, FFI::NCurses::Color::CYAN, FFI::NCurses::Color::BLACK)
-init_pair(8, FFI::NCurses::Color::WHITE, FFI::NCurses::Color::BLACK)
-
-init_pair(9, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::BLACK)
-init_pair(10, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::RED)
-init_pair(11, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::GREEN)
-init_pair(12, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::YELLOW)
-init_pair(13, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::BLUE)
-init_pair(14, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::MAGENTA)
-init_pair(15, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::CYAN)
-init_pair(16, FFI::NCurses::Color::BLACK, FFI::NCurses::Color::WHITE)
-
 
 ######################### RECUP DES DONNEES DE QBOLLACH ##################################
 
@@ -40,30 +16,76 @@ request = Net::HTTP::Get.new(uri.request_uri)
 response = http.request(request)
 string = response.body
 parsed = JSON.parse(string)
-parsed.each {|key, value| puts "#{key} => #{value}"}
+parsed.each {|key, value| puts "#{key} => #{value}\n\r "}
 
 ########################## INITIALISATION DES TERMCAPS ###################################
 
-initscr
-clear
-printw("Welcome to Alex's Graph powered by YOUR MOM")
-refresh
-getch
-endwin
+maximum = 0
+parsed.each {|key, value| ( maximum = [ maximum, value.to_i ].max ) }
 
-initscr
-start_color
-curs_set 0
-raw
-cbreak
-noecho
-clear
-move 1, 1
-standout
-printw("Ferme bien ta gueule")
-backgr
-standend
-refresh
-ch = getch
-endwin
+puts 'max : ' + maximum.to_s
 
+#exit
+
+Ncurses.initscr
+#Ncurses.curs_set(0)
+Ncurses.start_color
+Ncurses.init_color(42, 164, 164, 164)
+Ncurses.init_pair(1, Ncurses::COLOR_RED, Ncurses::COLOR_BLACK)
+Ncurses.init_pair(2, Ncurses::COLOR_WHITE, Ncurses::COLOR_WHITE)
+Ncurses.init_pair(3, 42, Ncurses::COLOR_BLACK)
+
+MARGIN_LEFT = 10
+MARGIN_BOTTOM = 5
+
+while true
+	Ncurses.erase
+
+	for i in 0..(Ncurses.LINES - MARGIN_BOTTOM + 1)
+		Ncurses.attrset(Ncurses::COLOR_PAIR(1))
+		Ncurses.mvaddstr(i, MARGIN_LEFT - 1, "|")
+		Ncurses.attrset(Ncurses::COLOR_PAIR(0))
+		Ncurses.mvaddstr(i, 0, (((Ncurses.LINES - MARGIN_BOTTOM + 1) - i) * maximum / (Ncurses.LINES - MARGIN_BOTTOM + 1)).to_s)
+	end
+
+	Ncurses.attrset(Ncurses::COLOR_PAIR(3))
+
+	for j in 0..(Ncurses.LINES - MARGIN_BOTTOM + 1)
+		for i in MARGIN_LEFT..Ncurses.COLS
+			Ncurses.mvaddstr(j * 4, i, "-")
+		end
+	end
+
+	Ncurses.attrset(Ncurses::COLOR_PAIR(1))
+
+	for i in MARGIN_LEFT..Ncurses.COLS
+		Ncurses.mvaddstr(Ncurses.LINES - MARGIN_BOTTOM + 1, i, "-")
+	end
+
+	Ncurses.mvaddstr(Ncurses.LINES - MARGIN_BOTTOM + 1, MARGIN_LEFT - 1 , "+")
+
+	Ncurses.attrset(Ncurses::COLOR_PAIR(0))
+
+	x = MARGIN_LEFT
+	j = 0
+	parsed.each do |key, value|
+		size = value.to_i * (Ncurses.LINES - MARGIN_BOTTOM) / maximum
+		for i in 0..size
+			Ncurses.attrset(Ncurses::COLOR_PAIR(2))
+			Ncurses.mvaddstr((Ncurses.LINES - MARGIN_BOTTOM) - i, x, "X")
+			Ncurses.attrset(Ncurses::COLOR_PAIR(0))
+		end
+		if j % 2 == 0
+			Ncurses.mvaddstr(Ncurses.LINES - MARGIN_BOTTOM + 2, x - 5, key[5, 11])
+		else
+			Ncurses.mvaddstr(Ncurses.LINES - MARGIN_BOTTOM + 3, x - 5, key[5, 11])
+		end
+		x += (Ncurses.COLS - MARGIN_LEFT) / parsed.size
+		j += 1
+	end
+
+	Ncurses.refresh
+	sleep(0.01)
+end
+
+Ncurses.endwin
